@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Earthquake Data Viewer</title>
+    <script src="https://cesium.com/downloads/cesiumjs/releases/1.99/Build/Cesium/Cesium.js"></script>
+    <link href="https://cesium.com/downloads/cesiumjs/releases/1.99/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Roboto', sans-serif;
+            background: #f4f4f9;
+        }
+
+        #cesiumContainer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        #datePicker {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 100;
+            background: white;
+            padding: 18px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+            font-size: 14px;
+        }
+
+        #earthquakeDetails {
+            position: absolute;
+            background-color: rgba(255, 255, 255, 0.9);
+            border: 1px solid #ccc;
+            padding: 12px;
+            border-radius: 10px;
+            max-width: 280px;
+            display: none;
+            box-shadow: 0 3px 6px rgba(0, 0, 0, 0.2);
+            font-size: 14px;
+            pointer-events: none;
+            z-index: 1000;
+        }
+
+        #earthquakeDetails h4 {
+            margin: 0 0 10px;
+            font-size: 16px;
+        }
+
+        #earthquakeDetails p {
+            margin: 5px 0;
+        }
+
+        .cesium-viewer-bottom,
+        .cesium-viewer-toolbar,
+        .cesium-viewer-infoBoxContainer {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+    <div id="cesiumContainer"></div>
+    <div id="datePicker">    
+        <label for="selectDate">Select Date:</label>
+        <input type="date" id="selectDate" name="selectDate" onchange="loadEarthquakeData()">
+    </div>
+    <div id="earthquakeDetails"></div>
+
+    <script>
+        Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI3NzMzYmNkOC0yN2EwLTQwNjUtYWQzYy03Y2JiNGYwOWYwZGYiLCJpZCI6MjU3NTU3LCJpYXQiOjE3MzI1MjczNjZ9.o7jjY1t-nQlFNzCzEo0TLBHHzmQvL3AdpNMOCoD8DNM';
+
+        const viewer = new Cesium.Viewer('cesiumContainer', {
+            imageryProvider: Cesium.createWorldImagery({
+                style: Cesium.IonWorldImageryStyle.AERIAL_WITH_LABELS
+            }),
+            baseLayerPicker: false,
+            timeline: false,
+            animation: false,
+            homeButton: false,
+            sceneModePicker: false,
+            navigationHelpButton: false,
+            fullscreenButton: false,
+            infoBox: false,
+            selectionIndicator: false
+        });
+
+        function loadEarthquakeData() {
+            const dateInput = document.getElementById('selectDate').value;
+            const detailsBox = document.getElementById('earthquakeDetails');
+
+            if (!dateInput) {
+                detailsBox.style.display = 'none';
+                return;
+            }
+
+            const formattedDate = new Date(dateInput).toISOString().split('T')[0];
+
+            fetch(`/earthquake-data/?date=${formattedDate}`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok.');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (!data.features || !Array.isArray(data.features)) {
+                        throw new Error('Data format is incorrect. Expected an array of features.');
+                    }
+
+                    const earthquakes = data.features;
+                    viewer.dataSources.removeAll();
+                    const dataSource = new Cesium.CustomDataSource('earthquakes');
+
+                    earthquakes.forEach(feature => {
+                        const coords = feature.geometry.coordinates;
+                        const properties = feature.properties;
+
+                        const position = Cesium.Cartesian3.fromDegrees(coords[0], coords[1]);
+                        const marker = dataSource.entities.add({
+                            position: position,
+                            billboard: {
+                                image: '/static/image/earthquake_marker.png',
+                                verticalOrigin: Cesium.VerticalOrigin.BOTTOM
+                            },
+                            properties: properties
+                        });
+                    });
+
+                    viewer.dataSources.add(dataSource);
+                    viewer.zoomTo(dataSource);
+
+                    const handler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas);
+                    handler.setInputAction(function (click) {
+                        const pickedObject = viewer.scene.pick(click.position);
+                        if (Cesium.defined(pickedObject) && pickedObject.id && pickedObject.id.properties) {
+                            showEarthquakeDetails(pickedObject.id.position, pickedObject.id.properties);
+                        } else {
+                            detailsBox.style.display = 'none';
+                        }
+                    }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
+                })
+                .catch(error => {
+                    console.error('Error fetching or processing data:', error);
+                });
+        }
+
+        function showEarthquakeDetails(position, properties) {
+            const detailsBox = document.getElementById('earthquakeDetails');
+
+            const screenPosition = Cesium.SceneTransforms.wgs84ToWindowCoordinates(viewer.scene, position.getValue(Cesium.JulianDate.now()));
+
+            if (screenPosition) {
+                detailsBox.style.left = `${screenPosition.x + 10}px`;
+                detailsBox.style.top = `${screenPosition.y - 60}px`;
+                detailsBox.style.display = 'block';
+
+                const eventDate = new Date(properties.time);
+                const day = String(eventDate.getUTCDate()).padStart(2, '0');
+                const month = String(eventDate.getUTCMonth() + 1).padStart(2, '0');
+                const year = eventDate.getUTCFullYear();
+                const hours = String(eventDate.getUTCHours()).padStart(2, '0');
+                const minutes = String(eventDate.getUTCMinutes()).padStart(2, '0');
+                const seconds = String(eventDate.getUTCSeconds()).padStart(2, '0');
+                const formattedDate = `${day}/${month}/${year}, ${hours}:${minutes}:${seconds}`;
+
+                detailsBox.innerHTML = `
+                    <h4>Earthquake Details</h4>
+                    <p><strong>Magnitude:</strong> ${properties.mag}</p>
+                    <p><strong>Location:</strong> ${properties.place}</p>
+                    <p><strong>Time:</strong> ${formattedDate}</p>
+                `;
+            }
+        }
+
+        viewer.canvas.addEventListener('click', function (event) {
+            const detailsBox = document.getElementById('earthquakeDetails');
+            const pickedObject = viewer.scene.pick(event.position);
+            if (!Cesium.defined(pickedObject)) {
+                detailsBox.style.display = 'none';
+            }
+        });
+    </script>
+</body>
+</html>

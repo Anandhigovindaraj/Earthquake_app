@@ -1,0 +1,52 @@
+body {
+              margin: 0;
+              font-family: 'Arial', sans-serif;
+          }
+          
+          #globe-container {
+              position: relative;
+          }
+          
+          #tooltip {
+              position: absolute;
+              background-color: rgba(0, 0, 0, 0.75);
+              color: #fff;
+              padding: 5px 10px;
+              border-radius: 5px;
+              pointer-events: none;
+              display: none;
+          }
+          
+          .loading-container {
+              position: absolute;
+              top: 50%;
+              left: 50%;
+              transform: translate(-50%, -50%);
+              text-align: center;
+          }
+          
+          .control-panel {
+              display: flex;
+              flex-direction: column;
+              padding: 20px;
+          }
+          
+          .legend-item {
+              display: flex;
+              align-items: center;
+          }
+          
+          .legend-dot {
+              width: 10px;
+              height: 10px;
+              border-radius: 50%;
+              margin-right: 5px;
+          }
+          
+          .earthquake-item {
+              padding: 10px;
+              border: 1px solid #444;
+              border-radius: 5px;
+              background-color: #222;
+          }
+          
