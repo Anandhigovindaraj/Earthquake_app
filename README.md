@@ -21,3 +21,5 @@ An interactive earthquake monitoring application that visualizes real-time and h
 | Globe     | [CesiumJS](https://cesium.com/), or WebGL |
 | Data API  | [USGS Earthquake API](https://earthquake.usgs.gov/fdsnws/event/1/) |
 | UI Extras | Datepicker widget                        |
+
+![screenshot](https://github.com/Anandhigovindaraj/Earthquake_app/blob/e3f31db559d69533dfdac14f812e8b1a7ff31ab1/eq%20pic%201.png)
